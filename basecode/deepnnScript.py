@@ -12,8 +12,8 @@ import pickle
 # Remember to connect the final hidden layer to the out_layer
 def create_multilayer_perceptron():
     # Network Parameters
-    n_hidden_1 = 256  # 1st layer number of features
-    n_hidden_2 = 256  # 2nd layer number of features
+    n_hidden_1 = 7  # Was 256 1st layer number of features
+    n_hidden_2 = 7  # Was 256 2nd layer number of features
     n_input = 2376  # data input
     n_classes = 2
 

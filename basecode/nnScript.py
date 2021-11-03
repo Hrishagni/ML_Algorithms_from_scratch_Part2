@@ -24,8 +24,7 @@ def initializeWeights(n_in, n_out):
 def sigmoid(z):
     """# Notice that z can be a scalar, a vector or a matrix
     # return the sigmoid of input z"""
-
-    return  # your code here
+    return  1/(1+np.exp(-1*z))
 
 
 def preprocess():
@@ -54,10 +53,61 @@ def preprocess():
 
     # Split the training sets into two sets of 50000 randomly sampled training examples and 10000 validation examples. 
     # Your code here.
-    
+    train_label = np.zeros((50000,))
+    validation_label = np.zeros((10000,))
+    test_label = np.zeros((10000,))
+    for i in range(0,10):
+      if i==0:
+        train=mat.get("train"+str(i))
+        test=mat.get("test"+str(i))              
+        np.random.shuffle(train)
+        validation_data=train[:1000,:]
+        train_data=train[1000:,:]
+        test_data=test
+        train_label[:train_data.shape[0]]=i
+        test_label[:test_data.shape[0]]=i
+        validation_label[:validation_data.shape[0]]=i
+      else:
+        train=mat.get("train"+str(i))
+        test=mat.get("test"+str(i))        
+        np.random.shuffle(train)
+        val_len=validation_data.shape[0]
+        validation_data=np.vstack((validation_data,train[:1000,:]))
+        
+        train_len=train_data.shape[0]
+        test_len=test_data.shape[0]
+                
+        train_data=np.vstack((train_data,train[1000:,:]))
+        test_data=np.vstack((test_data,test))
+        train_label[train_len:train_data.shape[0]]=i
+        test_label[test_len:test_data.shape[0]]=i
+        validation_label[val_len:validation_data.shape[0]]=i  
 
     # Feature selection
     # Your code here.
+    train_data=train_data/255
+    test_data=test_data/255
+    validation_data=validation_data/255
+
+    cols=train_data.shape[1]
+    train_same_col=[]
+    test_same_col=[]
+    valid_same_col=[]
+    for i in range(cols):
+      for j in range(i+1,cols):
+        if (train_data[:,i]==(train_data[:,j])).all():
+          if i not in train_same_col:
+            train_same_col.append(i)
+        if (test_data[:,i]==(test_data[:,j])).all():
+          if i not in test_same_col:
+            test_same_col.append(i)
+        if (validation_data[:,i]==(validation_data[:,j])).all():
+          if i not in valid_same_col:
+            valid_same_col.append(i)
+    
+    train_indices=list(set(np.arange(cols)).difference(set(train_same_col)))
+    test_indices=list(set(np.arange(cols)).difference(set(test_same_col)))
+    val_indices=list(set(np.arange(cols)).difference(set(valid_same_col)))          
 
     print('preprocess done')
 
@@ -109,19 +159,41 @@ def nnObjFunction(params, *args):
     obj_val = 0
 
     # Your code here
-    #
-    #
-    #
-    #
-    #
+    b1=np.ones((training_data.shape[0],1),int)
+    b2=np.ones((training_data.shape[0],1),int)
+    training_data=np.hstack((training_data,b1)) # Bias Added
+    Z1=np.dot(training_data,w1.T)
+    a1=sigmoid(Z1)
 
+    hidden_data=np.hstack((a1,b2))
+    Z2=np.dot(hidden_data,w2.T)
+    a2=sigmoid(Z2)
 
+    # 1-of-K coding scheme
+    n=training_data.shape[0]
+    yl = np.zeros((n,10))
+    for i in range (n):
+        yl[i][int(training_label[i])]=1
+
+    ln_out_hidden=np.log(a2)
+    ln_neg_out_hidden=np.log(1-a2)
+    jw=-(np.sum(yl*ln_out_hidden + (1-yl)*ln_neg_out_hidden))/n
+
+    dout=a2-yl
+    dout_dw2=np.dot(dout.T,hidden_data)
+    dout_dw1 = np.dot(((np.dot(dout,w2))*((1-hidden_data)*hidden_data)).T,training_data)
+    # dout_dw1 = np.dot((1-hidden_data)*hidden_data*np.dot(dout,w2),training_data)
+    dout_dw1 = dout_dw1[:n_hidden,:]
+
+    reg_jw=jw + (lambdaval/(2*n))*(np.sum(w1**2)+np.sum(w2**2))
+
+    dout_dw1=(dout_dw1+lambdaval*w1)/n
+    dout_dw2=(dout_dw2+lambdaval*w2)/n
 
     # Make sure you reshape the gradient matrices to a 1D array. for instance if your gradient matrices are grad_w1 and grad_w2
     # you would use code similar to the one below to create a flat array
-    # obj_grad = np.concatenate((grad_w1.flatten(), grad_w2.flatten()),0)
-    obj_grad = np.array([])
-
+    obj_grad = np.concatenate((dout_dw1.flatten(), dout_dw2.flatten()),0) 
+    obj_val = reg_jw
     return (obj_val, obj_grad)
 
 
@@ -144,6 +216,12 @@ def nnPredict(w1, w2, data):
 
     labels = np.array([])
     # Your code here
+    n=data.shape[0]
+    data=np.hstack((data,np.ones((n,1),int)))
+    a=sigmoid(np.dot(data,w1.T))    
+    a_b = np.hstack((a, np.ones((a.shape[0], 1),int)))
+    labels = sigmoid(np.dot(a_b,w2.T))    
+    labels = np.argmax(labels, axis=1)
 
     return labels
 
