@@ -2,6 +2,8 @@ import numpy as np
 from scipy.optimize import minimize
 from scipy.io import loadmat
 from math import sqrt
+import pickle
+import pandas as pd
 
 
 def initializeWeights(n_in, n_out):
@@ -88,29 +90,17 @@ def preprocess():
     train_data=train_data/255
     test_data=test_data/255
     validation_data=validation_data/255
-
-    cols=train_data.shape[1]
-    train_same_col=[]
-    test_same_col=[]
-    valid_same_col=[]
+    all_data = np.array(np.vstack((train_data,validation_data,test_data)))
+    cols=all_data.shape[1]
+    useful_indices = []
     for i in range(cols):
-      for j in range(i+1,cols):
-        if (train_data[:,i]==(train_data[:,j])).all():
-          if i not in train_same_col:
-            train_same_col.append(i)
-        if (test_data[:,i]==(test_data[:,j])).all():
-          if i not in test_same_col:
-            test_same_col.append(i)
-        if (validation_data[:,i]==(validation_data[:,j])).all():
-          if i not in valid_same_col:
-            valid_same_col.append(i)
-    
-    train_indices=list(set(np.arange(cols)).difference(set(train_same_col)))
-    test_indices=list(set(np.arange(cols)).difference(set(test_same_col)))
-    val_indices=list(set(np.arange(cols)).difference(set(valid_same_col)))          
-
+      if len(set(all_data[:,i]))!=1:
+        useful_indices.append(i)
+    all_data = all_data[:,useful_indices]  
+    train_data = all_data[0:train_data.shape[0],:]
+    validation_data = all_data[train_data.shape[0]:train_data.shape[0]+validation_data.shape[0],:]
+    test_data = all_data[-test_data.shape[0]:,:]
     print('preprocess done')
-
     return train_data, train_label, validation_data, validation_label, test_data, test_label
 
 
@@ -236,7 +226,7 @@ train_data, train_label, validation_data, validation_label, test_data, test_labe
 n_input = train_data.shape[1]
 
 # set the number of nodes in hidden unit (not including bias unit)
-n_hidden = 50
+n_hidden = 16
 
 # set the number of nodes in output unit
 n_class = 10
@@ -249,7 +239,7 @@ initial_w2 = initializeWeights(n_hidden, n_class)
 initialWeights = np.concatenate((initial_w1.flatten(), initial_w2.flatten()), 0)
 
 # set the regularization hyper-parameter
-lambdaval = 0
+lambdaval = 10
 
 args = (n_input, n_hidden, n_class, train_data, train_label, lambdaval)
 
@@ -267,6 +257,16 @@ nn_params = minimize(nnObjFunction, initialWeights, jac=True, args=args, method=
 # Reshape nnParams from 1D vector into w1 and w2 matrices
 w1 = nn_params.x[0:n_hidden * (n_input + 1)].reshape((n_hidden, (n_input + 1)))
 w2 = nn_params.x[(n_hidden * (n_input + 1)):].reshape((n_class, (n_hidden + 1)))
+
+params_dict = {}
+params_dict['selected_features'] = pd.DataFrame(train_data).columns
+params_dict['n_hidden'] = n_hidden
+params_dict['w1'] = w1
+params_dict['w2'] = w2
+params_dict['λ'] = lambdaval
+
+with open('params.pickle', 'wb') as handle:
+    pickle.dump(params_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 # Test the computed parameters
 
